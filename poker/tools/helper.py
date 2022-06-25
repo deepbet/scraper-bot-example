@@ -157,9 +157,12 @@ def init_logger(screenlevel, filename=None, logdir=None, modulename=''):
         root.addHandler(error_handler)
         root.addHandler(info_handler)
 
+    LOG_VERBOSE_FORMAT = ('[%(asctime)s] %(name)s:%(levelname)-8s '
+                          '%(filename)s:%(lineno)d -> %(message)s')
+
     # screen output formatter
     stream_handler.setFormatter(
-        logging.Formatter('%(levelname)s - %(message)s'))
+        logging.Formatter(LOG_VERBOSE_FORMAT))
     root.addHandler(stream_handler)
 
     mainlogger = logging.getLogger(modulename)

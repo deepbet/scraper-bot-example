@@ -24,3 +24,16 @@ fastapi
 tensorflow-gpu
 tqdm
 seaborn
+
+
+# download from here
+# `https://github.com/simonflueckiger/tesserocr-windows_build/releases`
+# and `pip install *.whl`
+#
+# see more options at `https://github.com/sirfz/tesserocr`
+tesserocr
+
+
+# download SDK for Virtual Box from `https://www.virtualbox.org/wiki/Downloads`
+# set the environment variable VBOX_INSTALL_PATH to 'C:\Program Files\Oracle\VirtualBox' (without quotes)
+# and do the `python vboxapisetup.py install`

@@ -314,8 +314,8 @@ class TableSetupActionAndSignals(QObject):
                 vb = VirtualBoxController()
                 self.original_screenshot = vb.get_screenshot_vbox()
                 log.debug("Screenshot taken from virtual machine")
-            except:
-                log.warning("No virtual machine found. Press SETUP to re initialize the VM controller")
+            except Exception as exc:
+                log.warning("No virtual machine found. Press SETUP to re initialize the VM controller: %r", exc)
                 self.original_screenshot = take_screenshot()
 
         log.info("Emitting update signal")
@@ -587,6 +587,108 @@ class TableSetupActionAndSignals(QObject):
         table_scraper.has_raise_button()
         table_scraper.has_bet_button()
         log.info("Test finished.")
+
+
+class TableSetupAnalyzeScreenshot():
+    def __init__(self, table_name):
+        """Initial"""
+        self.screenshot_clicks = 0
+
+        self.preview = None
+        self.table_name = table_name
+        self.original_screenshot = None
+        self.screenshot_image = None
+        self.top_left_corner_img = None
+        self.tlc = None
+        self.cropped = False
+
+        _available_tables = mongo.get_available_tables(COMPUTER_NAME)
+
+    def load(self):
+        log.info(f"Loading table {self.table_name}")
+        table = mongo.get_table(table_name=self.table_name)
+        log.debug(table.keys())
+
+        # show topleft_corner image in preview
+        self.preview = Image.open(io.BytesIO(table['topleft_corner']))
+
+    def take_screenshot(self):
+        """Take a screenshot"""
+        log.info("Taking screenshot")
+        config = get_config()
+        control = config.config.get('main', 'control')
+        if control == 'Direct mouse control':
+            self.original_screenshot = take_screenshot()
+
+        else:
+            try:
+                vb = VirtualBoxController()
+                self.original_screenshot = vb.get_screenshot_vbox()
+                log.debug("Screenshot taken from virtual machine")
+            except Exception as exc:
+                log.warning("No virtual machine found. Press SETUP to re initialize the VM controller: %r", exc)
+                self.original_screenshot = take_screenshot()
+
+    def crop(self):
+        if not self.original_screenshot:
+            print("No screenshot taken yet",
+                   "Please take a screenshot first by pressing on the take screenshot button. Then mark a new top "
+                   "left corner or load a previously saved one. After that you can crop the image.")
+            return
+        self.load_topleft_corner()
+        log.debug("Cropping top left corner")
+        self.original_screenshot, self.tlc = crop_screenshot_with_topleft_corner(self.original_screenshot,
+                                                                                 self.top_left_corner_img)
+        if self.original_screenshot is None:
+            log.warning("No (or multiple) top left corner found")
+            print("Top left corner problem: ",
+                   "No or multiple top left corners visible. Please ensure only a single top left corner is visible.")
+            return
+        else:
+            self.cropped = True
+
+    def load_topleft_corner(self):
+        if self.top_left_corner_img is not None:
+            return
+
+        log.info(f"Load top left corner for {self.table_name}")
+        try:
+            self.top_left_corner_img = get_table_template_image(self.table_name, 'topleft_corner')
+        except KeyError:
+            log.error("No top left corner saved yet. "
+                      "Please mark a top left corner and click on the save newly selected top left corner.")
+
+    def test_all(self):
+        """Test table button"""
+        from poker.scraper.table_scraper import TableScraper
+        table_dict = mongo.get_table(table_name=self.table_name)
+
+        table_scraper = TableScraper(table_dict)
+        table_scraper.nn_model = None
+
+        if 'use_neural_network' in table_dict and table_dict['use_neural_network'] == '2':
+            from tensorflow.keras.models import model_from_json
+            table_scraper.nn_model = model_from_json(table_dict['_model'])
+            mongo.load_table_nn_weights(self.table_name)
+            table_scraper.nn_model.load_weights(get_dir('codebase') + '/loaded_model.h5')
+
+        table_scraper.screenshot = self.original_screenshot
+        table_scraper.crop_from_top_left_corner()
+        table_scraper.is_my_turn()
+        table_scraper.lost_everything()
+        table_scraper.get_my_cards2()
+        table_scraper.get_table_cards2()
+        table_scraper.get_dealer_position2()
+        table_scraper.get_players_in_game()
+        table_scraper.get_pots()
+        table_scraper.get_players_funds()
+        table_scraper.get_player_pots()
+        table_scraper.get_call_value()
+        table_scraper.get_raise_value()
+        table_scraper.has_all_in_call_button()
+        table_scraper.has_call_button()
+        table_scraper.has_raise_button()
+        table_scraper.has_bet_button()
 
 
 def pop_up(title, text, details=None, ok_cancel=False):
